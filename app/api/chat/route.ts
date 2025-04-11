@@ -79,6 +79,18 @@ export async function POST(req: Request) {
       } Content: ${page?._markdown}`;
     });
 
+    // Get the user's IP address from the request headers
+    const forwardedFor = req.headers.get("x-forwarded-for");
+    const realIp = req.headers.get("x-real-ip");
+    const endUserIpAddress = forwardedFor?.split(",")[0] || realIp || "unknown";
+
+    // Create a session for this user
+    const airbenderSession = await airbender.fetchSession({
+      productKey: process.env.AIRBENDER_PRODUCT_KEY || "",
+      ipAddress: endUserIpAddress,
+    });
+    const airbenderSessionId = airbenderSession.id;
+
     const result = await streamTextWithLogging(
       {
         model: { provider: "google", modelId: "gemini-1.5-flash-8b" },
@@ -100,7 +112,7 @@ export async function POST(req: Request) {
         messages: convertToCoreMessages(messages),
       },
       {
-        sessionID: process.env.AIRBENDER_PRODUCT_ID,
+        sessionID: airbenderSessionId,
         dynamicModel: true, // Enable server-side model control
       }
     );
